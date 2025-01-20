@@ -1,80 +1,156 @@
-function calculate() {
-    const regularPatients = document.getElementById('regularPatients').value;
-    const specialPatients = document.getElementById('specialPatients').value;
+document.addEventListener('DOMContentLoaded', function() {
+    const calculateBtn = document.getElementById('calculateBtn');
+    const morningInput = document.getElementById('morningVisitors');
+    const afternoonInput = document.getElementById('afternoonVisitors');
+    
+    // Set default values
+    morningInput.value = "2.5";
+    afternoonInput.value = "3.2";
+    
+    calculateBtn.addEventListener('click', calculateProbabilities);
+    // Initial calculation on page load
+    calculateProbabilities();
+});
 
-    if (!regularPatients || !specialPatients) {
-        alert('Harap isi semua field yang wajib diisi');
-        return;
+async function calculateProbabilities() {
+    const morningVisitors = document.getElementById('morningVisitors').value;
+    const afternoonVisitors = document.getElementById('afternoonVisitors').value;
+    const showPercent = document.getElementById('showPercent').checked;
+
+    try {
+        const response = await fetch('/calculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                morning: morningVisitors,
+                afternoon: afternoonVisitors
+            })
+        });
+
+        const data = await response.json();
+        updateAllTables(data, showPercent);
+    } catch (error) {
+        console.error('Error:', error);
     }
-
-    fetch('/calculate', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            regularPatients: regularPatients,
-            specialPatients: specialPatients
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            updateResults(data);
-        } else {
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        alert('Error menghitung probabilitas: ' + error);
-    });
 }
 
-function updateResults(data) {
-    // Update final result
-    document.getElementById('regularWin').textContent = data.regular_patients.toFixed(2);
-    document.getElementById('regularWinPercent').textContent = data.regular_patients.toFixed(2) + '%';
-    document.getElementById('specialWin').textContent = data.special_patients.toFixed(2);
-    document.getElementById('specialWinPercent').textContent = data.special_patients.toFixed(2) + '%';
-    document.getElementById('mixedResult').textContent = data.mixed_patients.toFixed(2);
-    document.getElementById('mixedResultPercent').textContent = data.mixed_patients.toFixed(2) + '%';
+function updateAllTables(data, showPercent) {
+    updateFinalResults(data.hasil);
+    updateTotalVisitorsTable(data.matrix);
+    updateCapacityTable(data.hasil);
+    updateConcurrentTable(data.concurrent);
+    updateDistributionTable(data.matrix);
+}
 
-    // Update total visits
-    const visits = ['0_5', '1_5', '2_5', '3_5', '4_5'];
-    visits.forEach(visit => {
-        const visitKey = visit.replace('_', '.');
-        document.getElementById('over' + visit).textContent = 
-            data.total_visits[visitKey].over.toFixed(2);
-        document.getElementById('under' + visit).textContent = 
-            data.total_visits[visitKey].under.toFixed(2);
-    });
-
-    // Update both types
-    document.getElementById('bothTypesYes').textContent = data.both_types.yes.toFixed(2);
-    document.getElementById('bothTypesNo').textContent = data.both_types.no.toFixed(2);
-
-    // Update visit distribution table
-    const tbody = document.querySelector('#visitDistribution tbody');
-    tbody.innerHTML = '';
+function updateFinalResults(hasil) {
+    const table = document.getElementById('finalResults').getElementsByTagName('tbody')[0];
+    const rows = table.getElementsByTagName('tr');
     
-    for (let i = 0; i < 5; i++) {
+    updateTableRow(rows[0], hasil.morning_busy);
+    updateTableRow(rows[1], hasil.balanced);
+    updateTableRow(rows[2], hasil.afternoon_busy);
+}
+
+function updateTableRow(row, probability) {
+    const cells = row.getElementsByTagName('td');
+    const ratio = probability > 0 ? (100 / probability).toFixed(2) : "0.00";
+    cells[1].textContent = ratio;
+    cells[2].textContent = probability.toFixed(2) + "%";
+}
+
+function updateTotalVisitorsTable(matrix) {
+    const table = document.getElementById('overUnderTable');
+    table.innerHTML = '';
+    
+    const headerRow = document.createElement('tr');
+    const thresholds = [2, 4, 6, 8, 10];
+    headerRow.innerHTML = '<th>Pengunjung</th>';
+    thresholds.forEach(threshold => {
+        headerRow.innerHTML += `<th>${threshold}</th>`;
+    });
+    table.appendChild(headerRow);
+    
+    const aboveRow = document.createElement('tr');
+    aboveRow.innerHTML = '<td>Di atas</td>';
+    thresholds.forEach(threshold => {
+        const prob = calculateAboveThreshold(matrix, threshold);
+        aboveRow.innerHTML += `<td>${prob.toFixed(2)}</td>`;
+    });
+    table.appendChild(aboveRow);
+    
+    const belowRow = document.createElement('tr');
+    belowRow.innerHTML = '<td>Di bawah</td>';
+    thresholds.forEach(threshold => {
+        const prob = calculateBelowThreshold(matrix, threshold);
+        belowRow.innerHTML += `<td>${prob.toFixed(2)}</td>`;
+    });
+    table.appendChild(belowRow);
+}
+
+function calculateAboveThreshold(matrix, threshold) {
+    let prob = 0;
+    const maxVisitors = matrix.length;
+    for (let i = 0; i < maxVisitors; i++) {
+        for (let j = 0; j < maxVisitors; j++) {
+            if (i + j > threshold) {
+                prob += matrix[i][j];
+            }
+        }
+    }
+    return prob;
+}
+
+function calculateBelowThreshold(matrix, threshold) {
+    let prob = 0;
+    const maxVisitors = matrix.length;
+    for (let i = 0; i < maxVisitors; i++) {
+        for (let j = 0; j < maxVisitors; j++) {
+            if (i + j < threshold) {
+                prob += matrix[i][j];
+            }
+        }
+    }
+    return prob;
+}
+
+function updateCapacityTable(hasil) {
+    const table = document.getElementById('capacityTable').getElementsByTagName('tbody')[0];
+    const rows = table.getElementsByTagName('tr');
+    
+    rows[0].getElementsByTagName('td')[1].textContent = (hasil.morning_busy / 2).toFixed(2);
+    rows[0].getElementsByTagName('td')[2].textContent = (100 - hasil.morning_busy / 2).toFixed(2);
+    
+    rows[1].getElementsByTagName('td')[1].textContent = (hasil.afternoon_busy / 2).toFixed(2);
+    rows[1].getElementsByTagName('td')[2].textContent = (100 - hasil.afternoon_busy / 2).toFixed(2);
+}
+
+function updateConcurrentTable(concurrent) {
+    const table = document.getElementById('concurrentTable').getElementsByTagName('tbody')[0];
+    const row = table.getElementsByTagName('tr')[0];
+    
+    row.getElementsByTagName('td')[0].textContent = concurrent.yes.toFixed(2);
+    row.getElementsByTagName('td')[1].textContent = concurrent.no.toFixed(2);
+}
+
+function updateDistributionTable(matrix) {
+    const table = document.getElementById('distributionTable');
+    table.innerHTML = '';
+    
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = '<th>Pagi/Siang</th>';
+    for (let i = 0; i < matrix[0].length; i++) {
+        headerRow.innerHTML += `<th>${i}</th>`;
+    }
+    table.appendChild(headerRow);
+    
+    for (let i = 0; i < matrix.length; i++) {
         const row = document.createElement('tr');
         row.innerHTML = `<td>${i}</td>`;
-        
-        for (let j = 0; j < 5; j++) {
-            const cell = document.createElement('td');
-            cell.textContent = data.visit_matrix[i][j].toFixed(2);
-            
-            if (i === j) {
-                cell.classList.add('yellow-bg');
-            } else if (i > j) {
-                cell.classList.add('green-bg');
-            } else {
-                cell.classList.add('pink-bg');
-            }
-            
-            row.appendChild(cell);
+        for (let j = 0; j < matrix[i].length; j++) {
+            row.innerHTML += `<td>${matrix[i][j].toFixed(2)}</td>`;
         }
-        tbody.appendChild(row);
+        table.appendChild(row);
     }
 }
