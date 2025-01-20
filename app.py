@@ -1,12 +1,45 @@
 from flask import Flask, render_template, request, jsonify
+import math
 import numpy as np
-from scipy.stats import poisson
 
 app = Flask(__name__)
 
-def calculate_poisson_probability(lambda_val, k):
-    """Calculate Poisson probability for k events given lambda"""
-    return float(poisson.pmf(k, lambda_val))
+def hitung_poisson(k, lambda_val):
+    """Menghitung probabilitas Poisson untuk perkiraan pengunjung"""
+    return (math.exp(-lambda_val) * (lambda_val ** k)) / math.factorial(k)
+
+def generate_visitor_table(expected_morning, expected_afternoon, max_visitors=4):
+    """Menghasilkan tabel probabilitas pengunjung"""
+    probability_matrix = []
+    for i in range(max_visitors + 1):
+        row = []
+        for j in range(max_visitors + 1):
+            prob_morning = hitung_poisson(i, expected_morning)
+            prob_afternoon = hitung_poisson(j, expected_afternoon)
+            row.append(prob_morning * prob_afternoon * 100)
+        probability_matrix.append(row)
+    return probability_matrix
+
+def hitung_probabilitas_kunjungan(matrix):
+    """Menghitung probabilitas untuk berbagai pola kunjungan"""
+    morning_busy = 0
+    balanced = 0
+    afternoon_busy = 0
+    
+    for i in range(len(matrix)):
+        for j in range(len(matrix[0])):
+            if i > j:  # Morning busier
+                morning_busy += matrix[i][j]
+            elif i == j:  # Balanced
+                balanced += matrix[i][j]
+            else:  # Afternoon busier
+                afternoon_busy += matrix[i][j]
+    
+    return {
+        'morning_busy': morning_busy,
+        'balanced': balanced,
+        'afternoon_busy': afternoon_busy
+    }
 
 @app.route('/')
 def home():
@@ -14,73 +47,26 @@ def home():
 
 @app.route('/calculate', methods=['POST'])
 def calculate():
-    try:
-        data = request.get_json()
-        expected_regular = float(data['regularPatients'])  # Pasien reguler
-        expected_special = float(data['specialPatients'])  # Pasien khusus
-        
-        # Menghitung probabilitas untuk berbagai jumlah kunjungan
-        max_patients = 4  # Maksimal jumlah pasien per kategori
-        
-        # Matriks probabilitas
-        visit_matrix = []
-        regular_total = 0
-        special_total = 0
-        mixed_total = 0
-        
-        for i in range(max_patients + 1):
-            row = []
-            for j in range(max_patients + 1):
-                prob = (calculate_poisson_probability(expected_regular, i) * 
-                       calculate_poisson_probability(expected_special, j))
-                row.append(prob * 100)
-                
-                if i > j:
-                    regular_total += prob
-                elif i < j:
-                    special_total += prob
-                else:
-                    mixed_total += prob
-            visit_matrix.append(row)
-        
-        # Menghitung probabilitas total kunjungan
-        total_visit_probs = {}
-        for visit in [0.5, 1.5, 2.5, 3.5, 4.5]:
-            over_prob = 0
-            for i in range(max_patients + 1):
-                for j in range(max_patients + 1):
-                    if i + j > visit:
-                        over_prob += (calculate_poisson_probability(expected_regular, i) * 
-                                    calculate_poisson_probability(expected_special, j))
-            total_visit_probs[str(visit)] = {
-                'over': over_prob * 100,
-                'under': (1 - over_prob) * 100
-            }
-        
-        # Menghitung probabilitas kedua jenis pasien hadir
-        both_types_prob = 0
-        for i in range(1, max_patients + 1):
-            for j in range(1, max_patients + 1):
-                both_types_prob += (calculate_poisson_probability(expected_regular, i) * 
-                                  calculate_poisson_probability(expected_special, j))
-        
-        return jsonify({
-            'success': True,
-            'visit_matrix': visit_matrix,
-            'regular_patients': regular_total * 100,
-            'special_patients': special_total * 100,
-            'mixed_patients': mixed_total * 100,
-            'total_visits': total_visit_probs,
-            'both_types': {
-                'yes': both_types_prob * 100,
-                'no': (1 - both_types_prob) * 100
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+    data = request.get_json()
+    expected_morning = float(data['morning'])
+    expected_afternoon = float(data['afternoon'])
+    
+    # Generate probability matrix
+    prob_matrix = generate_visitor_table(expected_morning, expected_afternoon)
+    
+    # Calculate visitor patterns
+    hasil = hitung_probabilitas_kunjungan(prob_matrix)
+    
+    # Calculate concurrent visits probability
+    concurrent_yes = sum(prob_matrix[i][j] for i in range(1, len(prob_matrix)) 
+                        for j in range(1, len(prob_matrix[0])))
+    concurrent_no = 100 - concurrent_yes
+    
+    return jsonify({
+        'matrix': prob_matrix,
+        'hasil': hasil,
+        'concurrent': {'yes': concurrent_yes, 'no': concurrent_no}
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
