@@ -1,8 +1,12 @@
 from flask import Flask, render_template, request, jsonify
 import numpy as np
-from scipy.stats import binom
+from scipy.stats import poisson
 
 app = Flask(__name__)
+
+def calculate_poisson_probability(lambda_val, k):
+    """Calculate Poisson probability for k events given lambda"""
+    return float(poisson.pmf(k, lambda_val))
 
 @app.route('/')
 def home():
@@ -12,37 +16,71 @@ def home():
 def calculate():
     try:
         data = request.get_json()
-        n = int(data['n'])  # Jumlah total pengiriman
-        p = float(data['p'])  # Probabilitas sukses per pengiriman
-        k = int(data['k'])  # Jumlah sukses yang diinginkan
+        expected_regular = float(data['regularPatients'])  # Pasien reguler
+        expected_special = float(data['specialPatients'])  # Pasien khusus
         
-        # Menghitung probabilitas tepat k sukses
-        prob_exact = binom.pmf(k, n, p)
+        # Menghitung probabilitas untuk berbagai jumlah kunjungan
+        max_patients = 4  # Maksimal jumlah pasien per kategori
         
-        # Menghitung probabilitas kurang dari atau sama dengan k sukses
-        prob_cumulative = binom.cdf(k, n, p)
+        # Matriks probabilitas
+        visit_matrix = []
+        regular_total = 0
+        special_total = 0
+        mixed_total = 0
         
-        # Menghitung probabilitas lebih dari k sukses
-        prob_more = 1 - binom.cdf(k, n, p)
+        for i in range(max_patients + 1):
+            row = []
+            for j in range(max_patients + 1):
+                prob = (calculate_poisson_probability(expected_regular, i) * 
+                       calculate_poisson_probability(expected_special, j))
+                row.append(prob * 100)
+                
+                if i > j:
+                    regular_total += prob
+                elif i < j:
+                    special_total += prob
+                else:
+                    mixed_total += prob
+            visit_matrix.append(row)
         
-        # Menghitung probabilitas setidaknya k sukses
-        prob_at_least = 1 - binom.cdf(k-1, n, p)
+        # Menghitung probabilitas total kunjungan
+        total_visit_probs = {}
+        for visit in [0.5, 1.5, 2.5, 3.5, 4.5]:
+            over_prob = 0
+            for i in range(max_patients + 1):
+                for j in range(max_patients + 1):
+                    if i + j > visit:
+                        over_prob += (calculate_poisson_probability(expected_regular, i) * 
+                                    calculate_poisson_probability(expected_special, j))
+            total_visit_probs[str(visit)] = {
+                'over': over_prob * 100,
+                'under': (1 - over_prob) * 100
+            }
         
-        # Generate data untuk grafik
-        x = np.arange(0, n+1)
-        probabilities = binom.pmf(x, n, p)
-        graph_data = [{"x": int(i), "y": float(prob)} for i, prob in zip(x, probabilities)]
+        # Menghitung probabilitas kedua jenis pasien hadir
+        both_types_prob = 0
+        for i in range(1, max_patients + 1):
+            for j in range(1, max_patients + 1):
+                both_types_prob += (calculate_poisson_probability(expected_regular, i) * 
+                                  calculate_poisson_probability(expected_special, j))
         
         return jsonify({
-            "exact": round(prob_exact * 100, 2),
-            "cumulative": round(prob_cumulative * 100, 2),
-            "more": round(prob_more * 100, 2),
-            "at_least": round(prob_at_least * 100, 2),
-            "graph_data": graph_data
+            'success': True,
+            'visit_matrix': visit_matrix,
+            'regular_patients': regular_total * 100,
+            'special_patients': special_total * 100,
+            'mixed_patients': mixed_total * 100,
+            'total_visits': total_visit_probs,
+            'both_types': {
+                'yes': both_types_prob * 100,
+                'no': (1 - both_types_prob) * 100
+            }
         })
-        
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
     app.run(debug=True)

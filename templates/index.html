@@ -3,65 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kalkulator Probabilitas Pengiriman Same-Day Delivery</title>
+    <title>Kalkulator Distribusi Poisson - Klinik Sunat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Kalkulator Probabilitas Pengiriman Same-Day Delivery</h1>
-        
         <div class="input-section">
             <div class="form-group">
-                <label for="n">Jumlah Total Pengiriman (n):</label>
-                <input type="number" id="n" min="1" value="10">
+                <label>Kolom dengan * wajib diisi</label>
+                <div class="input-group">
+                    <label for="regularPatients">Harapan Sasaran Pasien Reguler *</label>
+                    <input type="number" id="regularPatients" step="0.01" required>
+                </div>
+                <div class="input-group">
+                    <label for="specialPatients">Harapan Pasien Khusus *</label>
+                    <input type="number" id="specialPatients" step="0.01" required>
+                </div>
+                <button onclick="calculate()">Menghitung</button>
             </div>
-            
-            <div class="form-group">
-                <label for="p">Probabilitas Sukses per Pengiriman (p):</label>
-                <input type="number" id="p" min="0" max="1" step="0.01" value="0.5">
-            </div>
-            
-            <div class="form-group">
-                <label for="k">Jumlah Sukses yang Diinginkan (k):</label>
-                <input type="number" id="k" min="0" value="5">
-            </div>
-            
-            <button onclick="calculateProbability()">Hitung Probabilitas</button>
         </div>
 
         <div class="results-section">
             <div class="result-box">
-                <h3>Probabilitas Tepat k Sukses:</h3>
-                <p id="exact-result">-</p>
+                <h3>Peluang Hasil Akhir Waktu Penuh</h3>
+                <table id="finalResult">
+                    <tr>
+                        <td>Menang di klinik sendiri</td>
+                        <td id="regularWin">-</td>
+                        <td id="regularWinPercent">-</td>
+                    </tr>
+                    <tr>
+                        <td>Kunjungan khusus</td>
+                        <td id="specialWin">-</td>
+                        <td id="specialWinPercent">-</td>
+                    </tr>
+                    <tr>
+                        <td>Campuran</td>
+                        <td id="mixedResult">-</td>
+                        <td id="mixedResultPercent">-</td>
+                    </tr>
+                </table>
             </div>
-            
-            <div class="result-box">
-                <h3>Probabilitas ≤ k Sukses:</h3>
-                <p id="cumulative-result">-</p>
-            </div>
-            
-            <div class="result-box">
-                <h3>Probabilitas > k Sukses:</h3>
-                <p id="more-result">-</p>
-            </div>
-            
-            <div class="result-box">
-                <h3>Probabilitas ≥ k Sukses:</h3>
-                <p id="at-least-result">-</p>
-            </div>
-        </div>
 
-        <div class="solution-section">
-            <h2>Solusi Langkah demi Langkah:</h2>
-            <div id="step-by-step-solution"></div>
-        </div>
+            <div class="result-box">
+                <h3>Total Kunjungan Atas/Bawah</h3>
+                <table id="totalVisits">
+                    <tr>
+                        <th>0.5</th>
+                        <th>1.5</th>
+                        <th>2.5</th>
+                        <th>3.5</th>
+                        <th>4.5</th>
+                    </tr>
+                    <tr>
+                        <td id="over0_5">-</td>
+                        <td id="over1_5">-</td>
+                        <td id="over2_5">-</td>
+                        <td id="over3_5">-</td>
+                        <td id="over4_5">-</td>
+                    </tr>
+                    <tr>
+                        <td id="under0_5">-</td>
+                        <td id="under1_5">-</td>
+                        <td id="under2_5">-</td>
+                        <td id="under3_5">-</td>
+                        <td id="under4_5">-</td>
+                    </tr>
+                </table>
+            </div>
 
-        <div class="graph-section">
-            <canvas id="probabilityChart"></canvas>
+            <div class="result-box">
+                <h3>Peluang untuk Kunjungan Bersih</h3>
+                <table id="cleanVisit">
+                    <tr>
+                        <th></th>
+                        <th>Ya</th>
+                        <th>TIDAK</th>
+                    </tr>
+                    <tr>
+                        <td>Reguler</td>
+                        <td id="regularCleanYes">-</td>
+                        <td id="regularCleanNo">-</td>
+                    </tr>
+                    <tr>
+                        <td>Khusus</td>
+                        <td id="specialCleanYes">-</td>
+                        <td id="specialCleanNo">-</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="result-box">
+                <h3>Peluang Kedua Jenis Pasien</h3>
+                <table id="bothTypes">
+                    <tr>
+                        <th>Kedua Jenis</th>
+                        <th>Ya</th>
+                        <th>TIDAK</th>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td id="bothTypesYes">-</td>
+                        <td id="bothTypesNo">-</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="result-box">
+                <h3>Distribusi Kunjungan</h3>
+                <table id="visitDistribution">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>0</th>
+                            <th>1</th>
+                            <th>2</th>
+                            <th>3</th>
+                            <th>4</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-    
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
