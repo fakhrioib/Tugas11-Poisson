@@ -3,127 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kalkulator Distribusi Poisson - Klinik Sunat</title>
+    <title>Prediksi Pengunjung Klinik</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
-        <div class="input-section">
-            <div class="form-group">
-                <label>Kolom dengan * wajib diisi</label>
-                <div class="input-group">
-                    <label for="regularPatients">Harapan Sasaran Pasien Reguler *</label>
-                    <input type="number" id="regularPatients" step="0.01" required>
-                </div>
-                <div class="input-group">
-                    <label for="specialPatients">Harapan Pasien Khusus *</label>
-                    <input type="number" id="specialPatients" step="0.01" required>
-                </div>
-                <button onclick="calculate()">Menghitung</button>
+        <h1>Prediksi Pengunjung Klinik</h1>
+        <div class="input-container">
+            <div class="input-group">
+                <label>Perkiraan Pengunjung Pagi *</label>
+                <input type="number" id="morningVisitors" step="0.01" value="2.5">
+            </div>
+            <div class="input-group">
+                <label>Perkiraan Pengunjung Siang *</label>
+                <input type="number" id="afternoonVisitors" step="0.01" value="3.2">
+            </div>
+            <button id="calculateBtn">Hitung Prediksi</button>
+            <div class="checkbox-group">
+                <input type="checkbox" id="showPercent">
+                <label for="showPercent">Tampilkan Persentase</label>
             </div>
         </div>
 
-        <div class="results-section">
+        <div class="results-container">
             <div class="result-box">
-                <h3>Peluang Hasil Akhir Waktu Penuh</h3>
-                <table id="finalResult">
-                    <tr>
-                        <td>Menang di klinik sendiri</td>
-                        <td id="regularWin">-</td>
-                        <td id="regularWinPercent">-</td>
-                    </tr>
-                    <tr>
-                        <td>Kunjungan khusus</td>
-                        <td id="specialWin">-</td>
-                        <td id="specialWinPercent">-</td>
-                    </tr>
-                    <tr>
-                        <td>Campuran</td>
-                        <td id="mixedResult">-</td>
-                        <td id="mixedResultPercent">-</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="result-box">
-                <h3>Total Kunjungan Atas/Bawah</h3>
-                <table id="totalVisits">
-                    <tr>
-                        <th>0.5</th>
-                        <th>1.5</th>
-                        <th>2.5</th>
-                        <th>3.5</th>
-                        <th>4.5</th>
-                    </tr>
-                    <tr>
-                        <td id="over0_5">-</td>
-                        <td id="over1_5">-</td>
-                        <td id="over2_5">-</td>
-                        <td id="over3_5">-</td>
-                        <td id="over4_5">-</td>
-                    </tr>
-                    <tr>
-                        <td id="under0_5">-</td>
-                        <td id="under1_5">-</td>
-                        <td id="under2_5">-</td>
-                        <td id="under3_5">-</td>
-                        <td id="under4_5">-</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="result-box">
-                <h3>Peluang untuk Kunjungan Bersih</h3>
-                <table id="cleanVisit">
-                    <tr>
-                        <th></th>
-                        <th>Ya</th>
-                        <th>TIDAK</th>
-                    </tr>
-                    <tr>
-                        <td>Reguler</td>
-                        <td id="regularCleanYes">-</td>
-                        <td id="regularCleanNo">-</td>
-                    </tr>
-                    <tr>
-                        <td>Khusus</td>
-                        <td id="specialCleanYes">-</td>
-                        <td id="specialCleanNo">-</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="result-box">
-                <h3>Peluang Kedua Jenis Pasien</h3>
-                <table id="bothTypes">
-                    <tr>
-                        <th>Kedua Jenis</th>
-                        <th>Ya</th>
-                        <th>TIDAK</th>
-                    </tr>
-                    <tr>
-                        <td></td>
-                        <td id="bothTypesYes">-</td>
-                        <td id="bothTypesNo">-</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div class="result-box">
-                <h3>Distribusi Kunjungan</h3>
-                <table id="visitDistribution">
+                <h2>Pola Kunjungan Harian</h2>
+                <table id="finalResults">
                     <thead>
                         <tr>
-                            <th></th>
-                            <th>0</th>
-                            <th>1</th>
-                            <th>2</th>
-                            <th>3</th>
-                            <th>4</th>
+                            <th>Periode</th>
+                            <th>Rasio</th>
+                            <th>Persentase</th>
                         </tr>
                     </thead>
                     <tbody>
+                        <tr class="morning-row">
+                            <td>Pagi Lebih Ramai</td>
+                            <td>0</td>
+                            <td>0%</td>
+                        </tr>
+                        <tr class="balanced-row">
+                            <td>Seimbang</td>
+                            <td>0</td>
+                            <td>0%</td>
+                        </tr>
+                        <tr class="afternoon-row">
+                            <td>Siang Lebih Ramai</td>
+                            <td>0</td>
+                            <td>0%</td>
+                        </tr>
                     </tbody>
+                </table>
+            </div>
+
+            <div class="result-box">
+                <h2>Total Pengunjung Per Hari</h2>
+                <table id="overUnderTable">
+                    <!-- Populated by JavaScript -->
+                </table>
+            </div>
+
+            <div class="result-box">
+                <h2>Kapasitas Ruang Tunggu</h2>
+                <table id="capacityTable">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Penuh</th>
+                            <th>Tersedia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Pagi</td>
+                            <td>0</td>
+                            <td>0</td>
+                        </tr>
+                        <tr>
+                            <td>Siang</td>
+                            <td>0</td>
+                            <td>0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="result-box">
+                <h2>Kunjungan Bersamaan</h2>
+                <table id="concurrentTable">
+                    <thead>
+                        <tr>
+                            <th>Ya</th>
+                            <th>Tidak</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>0</td>
+                            <td>0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="result-box full-width">
+                <h2>Distribusi Pengunjung</h2>
+                <table id="distributionTable">
+                    <!-- Populated by JavaScript -->
                 </table>
             </div>
         </div>
